@@ -86,9 +86,6 @@ void thres_main(int myid, int p_tot, char *img_path) {
 
 	}
 
-
-	MPI_Bcast( &x_size, 1, MPI_INT, ROOT_ID, comm );
-
 	int recv_count;
 
 	MPI_Scatter(scounts, 1, MPI_INT, &recv_count, 1, MPI_INT, ROOT_ID, comm);
