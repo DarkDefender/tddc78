@@ -105,7 +105,7 @@ void thres_main(int myid, int p_tot, char *img_path) {
 
 	sum = sum_chunk( recv_buf, recv_count );
 
-	printf("Sum for id:%d, sum:%d\n", myid, sum);
+	//printf("Sum for id:%d, sum:%d\n", myid, sum);
 
 	MPI_Allreduce(&sum, &tot_sum, 1, MPI_UNSIGNED, MPI_SUM, comm);
 
@@ -118,7 +118,7 @@ void thres_main(int myid, int p_tot, char *img_path) {
 	free(recv_buf);
 
 	if( myid == ROOT_ID ){
-		printf("Totsum: %d\n", tot_sum);
+		//printf("Totsum: %d\n", tot_sum);
 		write_ppm( "./out.ppm", x_size, y_size, (char *) data);
 
 		free(data);
@@ -136,19 +136,20 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-	double starttime, endtime;
-	starttime = MPI_Wtime();
-
 	int myid, p_tot;
 	MPI_Init( NULL, NULL );
 	MPI_Comm_rank( MPI_COMM_WORLD, &myid );
 	MPI_Comm_size( MPI_COMM_WORLD, &p_tot );
 
+	double starttime, endtime;
+	starttime = MPI_Wtime();
+
 	thres_main( myid, p_tot, argv[1] );
 
-	MPI_Finalize();
 	endtime = MPI_Wtime();
-	printf("That took %f seconds\n",endtime-starttime);
+	printf("That took %f seconds on id:%d\n", endtime-starttime, myid );
+
+	MPI_Finalize();
 	return 0;
 }
 
