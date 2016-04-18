@@ -4,11 +4,11 @@ CFLAGS = -g -O0
 
 LFLAGS = -g
 
-all: blur
+all: thres
 
 clean:
-	-$(RM) *.o blur
+	-$(RM) *.o thres
 
-blur: ppmio.o gaussw.o main.o
-	${CXX} -o $@ ppmio.o gaussw.o main.o $(LFLAGS)
+thres: ppmio.o gaussw.o t_main.o
+	${CXX} -o $@ ppmio.o gaussw.o t_main.o $(LFLAGS)
 
