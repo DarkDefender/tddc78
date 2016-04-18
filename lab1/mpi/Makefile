@@ -1,4 +1,4 @@
-CC = mpic++
+CXX = mpic++
 
 CFLAGS = -g -O0 
 
@@ -10,5 +10,5 @@ clean:
 	-$(RM) *.o blur
 
 blur: ppmio.o gaussw.o main.o
-	${CC} -o $@ ppmio.o gaussw.o main.o $(LFLAGS)
+	${CXX} -o $@ ppmio.o gaussw.o main.o $(LFLAGS)
 
