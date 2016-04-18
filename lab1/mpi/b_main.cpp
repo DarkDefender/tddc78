@@ -114,84 +114,88 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 
 	if( l_buf != NULL ){
 		MPI_Wait( &req[2], &status[2] );
-		for(int i = 0; i < radius; i++){
-			r = w[0] * buf[i].r;
-			g = w[0] * buf[i].g;
-			b = w[0] * buf[i].b;
-			n = w[0];
+	}
 
-			x = (start_x + i) % x_size;
+	for(int i = 0; i < radius; i++){
+		r = w[0] * buf[i].r;
+		g = w[0] * buf[i].g;
+		b = w[0] * buf[i].b;
+		n = w[0];
 
-			for( int wi = 1; wi <= radius; wi++){
-				wc = w[wi];
-				x2 = x - wi;
-				if(x2 >= 0){
-					int idx = i - wi;
-					if( idx >= 0 ){
-						r += wc * buf[idx].r;
-						g += wc * buf[idx].g;
-						b += wc * buf[idx].b;
-					} else {
-						r += wc * l_buf[radius + idx].r;
-						g += wc * l_buf[radius + idx].g;
-						b += wc * l_buf[radius + idx].b;
-					}
+		x = (start_x + i) % x_size;
+
+		for( int wi = 1; wi <= radius; wi++){
+			wc = w[wi];
+			x2 = x - wi;
+			if(x2 >= 0){
+				int idx = i - wi;
+				if( idx >= 0 ){
+					r += wc * buf[idx].r;
+					g += wc * buf[idx].g;
+					b += wc * buf[idx].b;
 					n += wc;
-				}
-				x2 = x + wi;
-				if(x2 < x_size){
-					r += wc * buf[i + wi].r;
-					g += wc * buf[i + wi].g;
-					b += wc * buf[i + wi].b;
+				} else if( l_buf != NULL ) {
+					r += wc * l_buf[radius + idx].r;
+					g += wc * l_buf[radius + idx].g;
+					b += wc * l_buf[radius + idx].b;
 					n += wc;
 				}
 			}
-			tmp_buf[i].r = r/n;
-			tmp_buf[i].g = g/n;
-			tmp_buf[i].b = b/n;
-
+			x2 = x + wi;
+			if(x2 < x_size){
+				r += wc * buf[i + wi].r;
+				g += wc * buf[i + wi].g;
+				b += wc * buf[i + wi].b;
+				n += wc;
+			}
 		}
+		tmp_buf[i].r = r/n;
+		tmp_buf[i].g = g/n;
+		tmp_buf[i].b = b/n;
+
 	}
     
     if( r_buf != NULL ){
 		MPI_Wait( &req[3], &status[3] );
-		for(int i = buf_size - radius; i < buf_size; i++){
-			r = w[0] * buf[i].r;
-			g = w[0] * buf[i].g;
-			b = w[0] * buf[i].b;
-			n = w[0];
+	}
 
-			x = (start_x + i) % x_size;
+	for(int i = buf_size - radius; i < buf_size; i++){
+		r = w[0] * buf[i].r;
+		g = w[0] * buf[i].g;
+		b = w[0] * buf[i].b;
+		n = w[0];
 
-			for( int wi = 1; wi <= radius; wi++){
-				wc = w[wi];
-				x2 = x - wi;
-				if(x2 >= 0){
-					r += wc * buf[i - wi].r;
-					g += wc * buf[i - wi].g;
-					b += wc * buf[i - wi].b;
+		x = (start_x + i) % x_size;
+
+		for( int wi = 1; wi <= radius; wi++){
+			wc = w[wi];
+			x2 = x - wi;
+			if(x2 >= 0){
+				r += wc * buf[i - wi].r;
+				g += wc * buf[i - wi].g;
+				b += wc * buf[i - wi].b;
+				n += wc;
+			}
+			x2 = x + wi;
+			if(x2 < x_size){
+				int idx = i + wi;
+				if( idx < buf_size ){
+					r += wc * buf[idx].r;
+					g += wc * buf[idx].g;
+					b += wc * buf[idx].b;
 					n += wc;
-				}
-				x2 = x + wi;
-				if(x2 < x_size){
-					int idx = i + wi;
-					if( idx < buf_size ){
-						r += wc * buf[idx].r;
-						g += wc * buf[idx].g;
-						b += wc * buf[idx].b;
-					} else {
-						r += wc * r_buf[idx % buf_size].r;
-						g += wc * r_buf[idx % buf_size].g;
-						b += wc * r_buf[idx % buf_size].b;
-					}
+				} else if( r_buf != NULL ) {
+					r += wc * r_buf[idx % buf_size].r;
+					g += wc * r_buf[idx % buf_size].g;
+					b += wc * r_buf[idx % buf_size].b;
 					n += wc;
 				}
 			}
-			tmp_buf[i].r = r/n;
-			tmp_buf[i].g = g/n;
-			tmp_buf[i].b = b/n;
-
 		}
+		tmp_buf[i].r = r/n;
+		tmp_buf[i].g = g/n;
+		tmp_buf[i].b = b/n;
+
 	}
 
 	if( l_buf != NULL){
@@ -209,6 +213,19 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 
 	free(tmp_buf);
 
+}
+
+void rot_array(pixel *in_data, pixel *out_data, int x_size, int y_size){
+	int offset = 0;
+	int buf_size = x_size * y_size;
+
+	for(int i = 0; i < buf_size; i++){
+    	out_data[i] = in_data[ offset + x_size * (i % y_size) ];
+		if( i != 0 && (i % y_size) == 0 ){
+        	offset++;
+		}
+	}
+	
 }
 
 void thres_main(int myid, int p_tot, char *img_path) {
@@ -248,6 +265,7 @@ void thres_main(int myid, int p_tot, char *img_path) {
 	}
 
 	MPI_Bcast( &x_size, 1, MPI_INT, ROOT_ID, comm );
+	MPI_Bcast( &y_size, 1, MPI_INT, ROOT_ID, comm );
 
 	int recv_count;
 
@@ -265,13 +283,33 @@ void thres_main(int myid, int p_tot, char *img_path) {
 
 	MPI_Gatherv( recv_buf, recv_count, MPI_CHAR, data, scounts, displs, MPI_CHAR, ROOT_ID, comm);
 
+	pixel *rot_data;
+
+	if ( myid == ROOT_ID ) {
+
+		rot_data = (pixel *)malloc(MAX_PIXELS*sizeof(pixel));
+
+		check_alloc(rot_data, "rot_data");
+
+		rot_array( data, rot_data, x_size, y_size );
+	}
+
+	MPI_Scatterv( rot_data, scounts, displs, MPI_CHAR, recv_buf, recv_count, MPI_CHAR,
+			ROOT_ID, comm);
+
+    blur_chunk( recv_buf, recv_count, myid, p_tot, y_size );
+
+	MPI_Gatherv( recv_buf, recv_count, MPI_CHAR, rot_data, scounts, displs, MPI_CHAR, ROOT_ID, comm);
+
 	free(recv_buf);
 
 	if( myid == ROOT_ID ){
 		//printf("Totsum: %d\n", tot_sum);
+		rot_array( rot_data, data, y_size, x_size );
 		write_ppm( "./out.ppm", x_size, y_size, (char *) data);
 
 		free(data);
+		free(rot_data);
 		free(displs);
 		free(scounts);
 	}
