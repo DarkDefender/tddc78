@@ -59,3 +59,43 @@ rm number*
 rm prob*
 
 #Test3
+
+tar -xf ../lab1/mpi/blur_result_3.tar
+
+./split_data.sh result1.txt
+cat number* > prob01
+
+./split_data.sh result2.txt
+cat number* > prob02
+
+./split_data.sh result3.txt
+cat number* > prob03
+
+./split_data.sh result4.txt
+cat number* > prob04
+
+python plot2.py blur3
+
+rm result*
+rm number*
+rm prob*
+
+tar -xf ../lab1/mpi/thres_result_3.tar
+
+./split_data.sh result1.txt
+cat number* > prob01
+
+./split_data.sh result2.txt
+cat number* > prob02
+
+./split_data.sh result3.txt
+cat number* > prob03
+
+./split_data.sh result4.txt
+cat number* > prob04
+
+python plot2.py thres3
+
+rm result*
+rm number*
+rm prob*
