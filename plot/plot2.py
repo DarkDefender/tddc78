@@ -3,14 +3,14 @@ import glob
 import matplotlib.pyplot as plt
 import sys
 
-cores = [1,2,4,8,16]
+cores = [1,2,3,4]
 
 x = np.array(cores)
 
 y = []
 e = []
 
-files = sorted(glob.glob('number*'))
+files = sorted(glob.glob('prob*'))
 
 for fn in files:
      data = np.loadtxt(fn)
@@ -23,8 +23,8 @@ e = np.array(e)
 
 plt.figure()
 plt.errorbar(x, y, yerr=e)
-plt.xlabel("Number of cores")
+plt.xlabel("Problem number")
 plt.ylabel("Time in seconds")
-plt.xlim(0,18)
+plt.xlim(0,5)
 #plt.show()
 plt.savefig(sys.argv[1] + ".eps")
