@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -63,7 +64,7 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 		MPI_Isend( buf, radius*3, MPI_CHAR, myid - 1, 1234, MPI_COMM_WORLD, &req[0] );
 		MPI_Irecv( l_buf, radius*3, MPI_CHAR, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &req[2] );
 
-        printf("%d: l_buf to id %d\n", myid, myid - 1);
+        //printf("%d: l_buf to id %d\n", myid, myid - 1);
 
 	}
 	if( (start_x + buf_size) % x_size != 0 ){
@@ -75,7 +76,7 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 		MPI_Isend( &buf[buf_size - radius - 1], radius*3, MPI_CHAR, myid + 1, 1234, MPI_COMM_WORLD, &req[1] );
 		MPI_Irecv( r_buf, radius*3, MPI_CHAR, myid + 1, MPI_ANY_TAG, MPI_COMM_WORLD, &req[3] );
 
-        printf("%d: r_buf to id %d\n", myid, myid + 1);
+        //printf("%d: r_buf to id %d\n", myid, myid + 1);
 	}
 
     int x, x2;
