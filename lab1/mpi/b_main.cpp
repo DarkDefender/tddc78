@@ -221,10 +221,10 @@ void rot_array(pixel *in_data, pixel *out_data, int x_size, int y_size){
 	int buf_size = x_size * y_size;
 
 	for(int i = 0; i < buf_size; i++){
-    	out_data[i] = in_data[ offset + x_size * (i % y_size) ];
 		if( i != 0 && (i % y_size) == 0 ){
         	offset++;
 		}
+    	out_data[i] = in_data[ offset + x_size * (i % y_size) ];
 	}
 	
 }
