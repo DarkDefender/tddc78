@@ -15,10 +15,10 @@ files = sorted(glob.glob('number*'))
 
 for fn in files:
      data = np.loadtxt(fn)
-     mean = np.mean(data)
-     y.append( mean )
-     low.append( mean - np.amin(data) )
-     high.append( np.amax(data) - mean )
+     median = np.median(data)
+     y.append( median )
+     low.append( median - np.amin(data) )
+     high.append( np.amax(data) - median )
 
 y = np.array(y)
 
