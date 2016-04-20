@@ -37,14 +37,14 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 
 	get_gauss_weights(radius, w);
 
-    int start_x;
-	
+	int start_x;
+
 	if(myid != p_tot - 1){
 		start_x = (myid * buf_size) % x_size;
 	} else {
 		start_x = buf_size % x_size;
 		if( start_x != 0 ){
-			start_x = x_size - start_x;  
+			start_x = x_size - start_x;
 		}
 	}
 
@@ -64,7 +64,6 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 		MPI_Isend( buf, radius*3, MPI_CHAR, myid - 1, 1234, MPI_COMM_WORLD, &req[0] );
 		MPI_Irecv( l_buf, radius*3, MPI_CHAR, myid - 1, MPI_ANY_TAG, MPI_COMM_WORLD, &req[2] );
 
-        //printf("%d: l_buf to id %d\n", myid, myid - 1);
 
 	}
 	if( (start_x + buf_size) % x_size != 0 ){
@@ -76,10 +75,9 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 		MPI_Isend( &buf[buf_size - radius - 1], radius*3, MPI_CHAR, myid + 1, 1234, MPI_COMM_WORLD, &req[1] );
 		MPI_Irecv( r_buf, radius*3, MPI_CHAR, myid + 1, MPI_ANY_TAG, MPI_COMM_WORLD, &req[3] );
 
-        //printf("%d: r_buf to id %d\n", myid, myid + 1);
 	}
 
-    int x, x2;
+	int x, x2;
 
 	for(int i = radius; i < buf_size - radius; i++){
 		r = w[0] * buf[i].r;
@@ -90,7 +88,7 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 		x = (start_x + i) % x_size;
 
 		for( int wi = 1; wi <= radius; wi++){
-        	wc = w[wi];
+			wc = w[wi];
 			x2 = x - wi;
 			if(x2 >= 0){
 				r += wc * buf[i - wi].r;
@@ -155,8 +153,8 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 		tmp_buf[i].b = b/n;
 
 	}
-    
-    if( r_buf != NULL ){
+
+	if( r_buf != NULL ){
 		MPI_Wait( &req[3], &status[3] );
 	}
 
@@ -203,13 +201,13 @@ void blur_chunk( pixel *buf, int char_buf_size, int myid, int p_tot, int x_size)
 		MPI_Wait( &req[0], &status[0] );
 		free(l_buf);
 	}
-    if( r_buf != NULL){
+	if( r_buf != NULL){
 		MPI_Wait( &req[1], &status[1] );
-    	free(r_buf);
+		free(r_buf);
 	}
 
 	for(int i = 0; i < buf_size; i++){
-    	buf[i] = tmp_buf[i];
+		buf[i] = tmp_buf[i];
 	}
 
 	free(tmp_buf);
@@ -222,11 +220,11 @@ void rot_array(pixel *in_data, pixel *out_data, int x_size, int y_size){
 
 	for(int i = 0; i < buf_size; i++){
 		if( i != 0 && (i % y_size) == 0 ){
-        	offset++;
+			offset++;
 		}
-    	out_data[i] = in_data[ offset + x_size * (i % y_size) ];
+		out_data[i] = in_data[ offset + x_size * (i % y_size) ];
 	}
-	
+
 }
 
 void thres_main(int myid, int p_tot, char *img_path) {
@@ -280,7 +278,7 @@ void thres_main(int myid, int p_tot, char *img_path) {
 	MPI_Scatterv( data, scounts, displs, MPI_CHAR, recv_buf, recv_count, MPI_CHAR,
 			ROOT_ID, comm);
 
-    blur_chunk( recv_buf, recv_count, myid, p_tot, x_size );
+	blur_chunk( recv_buf, recv_count, myid, p_tot, x_size );
 
 	MPI_Gatherv( recv_buf, recv_count, MPI_CHAR, data, scounts, displs, MPI_CHAR, ROOT_ID, comm);
 
@@ -298,7 +296,7 @@ void thres_main(int myid, int p_tot, char *img_path) {
 	MPI_Scatterv( rot_data, scounts, displs, MPI_CHAR, recv_buf, recv_count, MPI_CHAR,
 			ROOT_ID, comm);
 
-    blur_chunk( recv_buf, recv_count, myid, p_tot, y_size );
+	blur_chunk( recv_buf, recv_count, myid, p_tot, y_size );
 
 	MPI_Gatherv( recv_buf, recv_count, MPI_CHAR, rot_data, scounts, displs, MPI_CHAR, ROOT_ID, comm);
 
