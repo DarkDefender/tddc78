@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 #include "ppm.h"
 
 /* Pixel Declaration */
@@ -11,6 +12,21 @@ typedef struct _pixel {
     unsigned char r,g,b;
 } pixel;
 
+typedef struct _th_data {
+	int start_idx;
+	int count;
+	int colmax;
+	int image_size;
+	unsigned tot_threads;
+	pixel *image;
+
+} th_data;
+
+pthread_mutex_t avg_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_barrier_t barr;
+
+unsigned avg = 0;
+unsigned avg_threads_done = 0;
 
 pixel *allocate_image(int size)
 {
@@ -23,6 +39,57 @@ pixel *allocate_image(int size)
     return image;
 }
 
+void *filter(void *arg) {
+
+    unsigned pval, sum = 0;
+
+	th_data *data = (th_data *)arg;
+
+	pixel *image = data->image;
+	int start_idx = data->start_idx;
+	int count = data->count;
+    int colmax = data->colmax;
+	int image_size = data->image_size;
+	unsigned tot_threads = data->tot_threads;
+
+    /* filter */
+
+    for (int i = start_idx; i < start_idx + count; i++) {
+	    sum += image[i].r;
+	    sum += image[i].g;
+	    sum += image[i].b;
+    }
+
+	pthread_mutex_lock( &avg_mutex );
+    
+	avg += sum;
+	avg_threads_done++;
+
+	if(avg_threads_done >= tot_threads){
+		avg = avg/image_size;
+	}
+	
+	pthread_mutex_unlock( &avg_mutex );
+
+    // Synchronization point
+    int rc = pthread_barrier_wait(&barr);
+    if(rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD)
+    {
+        printf("Could not wait on barrier\n");
+        exit(-1);
+    }
+	
+	for (int i = start_idx; i < start_idx + count; i++) {
+		if (sum > avg)
+			pval = colmax;
+		else
+			pval = 0;
+		image[i].r = pval;
+		image[i].g = pval;
+		image[i].b = pval;
+	}
+}
+
 
 int main(int argc, char **argv)
 {
@@ -31,13 +98,12 @@ int main(int argc, char **argv)
     int radius;
     int xsize, ysize, colmax;
     pixel *image;
-    int x,y;
-    int avg, pval, psum, sum = 0;
 
+	int threads = 1;
 
     /* Take care of the arguments */
 
-    if (argc != 3) {
+    if (argc > 2) {
 	fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
 	exit(2);
     }
@@ -49,6 +115,12 @@ int main(int argc, char **argv)
 	fprintf(stderr, "Error when opening %s\n", argv[2]);
 	exit(1);
     }
+	if (argc == 4) {
+    	threads = atoi(argv[3]);
+		if(threads == 0){
+        	fprintf(stderr, "Not a valid number of threads\n");
+		}
+	}
 
 
     /* read file */
@@ -72,32 +144,56 @@ int main(int argc, char **argv)
 	exit(1);
     }
 
+    pthread_t thread_pool[threads];
 
-    /* filter */
+	int rc;
 
-    for (y=0; y<ysize; y++) {
-	for (x=0; x<xsize; x++) {
-	    sum += PIXEL(image,x,y)->r;
-	    sum += PIXEL(image,x,y)->g;
-	    sum += PIXEL(image,x,y)->b;
+	int size = xsize * ysize;
+	int chunk_size = size / threads;
+	int last_chunk_pad = size - chunk_size * threads;
+
+	int displs[threads];
+
+	int scounts[threads];
+
+	for( int i = 0; i < threads; i++){
+		displs[i] = i*chunk_size*3;
+		scounts[i] = chunk_size*3;
 	}
-    }
-    avg = sum/(xsize*ysize);
-    for (y=0; y<ysize; y++) {
-	for (x=0; x<xsize; x++) {
-	    psum = PIXEL(image,x,y)->r;
-	    psum += PIXEL(image,x,y)->g;
-	    psum += PIXEL(image,x,y)->b;
-	    if (psum > avg)
-		pval = colmax;
-	    else
-		pval = 0;
-	    PIXEL(image,x,y)->r = pval;
-	    PIXEL(image,x,y)->g = pval;
-	    PIXEL(image,x,y)->b = pval;
-	}
+
+	scounts[threads-1] = (chunk_size + last_chunk_pad)*3;
+
+	// Barrier initialization
+    if(pthread_barrier_init(&barr, NULL, threads))
+    {
+        printf("Could not create a barrier\n");
+        exit(-1);
     }
 
+	for(int t = 0; t < threads; t++) {
+		printf("Main: creating thread %d\n", t);
+
+        th_data data;
+
+		data.start_idx = displs[t];
+		data.count = scounts[t];
+
+		data.colmax = colmax;
+		data.image_size = size;
+		data.tot_threads = threads;
+
+		data.image = image;
+
+		rc = pthread_create(&thread_pool[t], NULL, filter, (void *)&data); 
+		if (rc) {
+			printf("ERROR; return code from pthread_create() is %d\n", rc);
+			exit(-1);
+		}
+	}
+
+	for(int t = 0; t < threads; t++) {
+    	pthread_join(thread_pool[t], NULL);
+	}
     /* write result */
     
     fprintf(outfile, "P6 %d %d %d\n", xsize, ysize, colmax);
@@ -108,6 +204,3 @@ int main(int argc, char **argv)
 
     exit(0);
 }
-
-
-
