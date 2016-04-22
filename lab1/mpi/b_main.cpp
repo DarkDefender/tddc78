@@ -6,7 +6,6 @@
 #include "ppmio.h"
 #include "gaussw.h"
 
-#define MAX_MEM 1024*1024
 #define MAX_RAD 1000
 #define ROOT_ID 0
 

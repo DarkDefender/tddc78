@@ -4,8 +4,6 @@
 #include <sys/stat.h>
 #include "ppmio.h"
 
-#define MAX_MEM 1024*1024
-#define MAX_RAD 1000
 #define ROOT_ID 0
 
 /* NOTE: This structure must not be padded! */
