@@ -2,10 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 #include "ppm.h"
-
-/* Pixel Declaration */
-#define PIXEL(image,x,y) ((image)+((y)*(xsize)+(x)))
 
 /* NOTE: This structure must not be padded! */
 typedef struct _pixel {
@@ -41,7 +39,7 @@ pixel *allocate_image(int size)
 
 void *filter(void *arg) {
 
-    unsigned pval, sum = 0;
+    unsigned pval, psum = 0, sum = 0;
 
 	th_data *data = (th_data *)arg;
 
@@ -80,7 +78,10 @@ void *filter(void *arg) {
     }
 	
 	for (int i = start_idx; i < start_idx + count; i++) {
-		if (sum > avg)
+	    psum = image[i].r;
+	    psum += image[i].g;
+	    psum += image[i].b;
+		if (psum > avg)
 			pval = colmax;
 		else
 			pval = 0;
@@ -103,7 +104,7 @@ int main(int argc, char **argv)
 
     /* Take care of the arguments */
 
-    if (argc > 2) {
+    if (argc < 3) {
 	fprintf(stderr, "Usage: %s infile outfile\n", argv[0]);
 	exit(2);
     }
@@ -119,6 +120,7 @@ int main(int argc, char **argv)
     	threads = atoi(argv[3]);
 		if(threads == 0){
         	fprintf(stderr, "Not a valid number of threads\n");
+			exit(1);
 		}
 	}
 
@@ -144,6 +146,9 @@ int main(int argc, char **argv)
 	exit(1);
     }
 
+    struct timespec stime, etime;
+    clock_gettime(CLOCK_REALTIME, &stime);
+
     pthread_t thread_pool[threads];
 
 	int rc;
@@ -157,11 +162,11 @@ int main(int argc, char **argv)
 	int scounts[threads];
 
 	for( int i = 0; i < threads; i++){
-		displs[i] = i*chunk_size*3;
-		scounts[i] = chunk_size*3;
+		displs[i] = i*chunk_size;
+		scounts[i] = chunk_size;
 	}
 
-	scounts[threads-1] = (chunk_size + last_chunk_pad)*3;
+	scounts[threads-1] = (chunk_size + last_chunk_pad);
 
 	// Barrier initialization
     if(pthread_barrier_init(&barr, NULL, threads))
@@ -170,21 +175,21 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
+	th_data data[threads];
+
 	for(int t = 0; t < threads; t++) {
-		printf("Main: creating thread %d\n", t);
+		//printf("Main: creating thread %d\n", t);
 
-        th_data data;
+		data[t].start_idx = displs[t];
+		data[t].count = scounts[t];
 
-		data.start_idx = displs[t];
-		data.count = scounts[t];
+		data[t].colmax = colmax;
+		data[t].image_size = size;
+		data[t].tot_threads = threads;
 
-		data.colmax = colmax;
-		data.image_size = size;
-		data.tot_threads = threads;
+		data[t].image = image;
 
-		data.image = image;
-
-		rc = pthread_create(&thread_pool[t], NULL, filter, (void *)&data); 
+		rc = pthread_create(&thread_pool[t], NULL, filter, (void *)&data[t]); 
 		if (rc) {
 			printf("ERROR; return code from pthread_create() is %d\n", rc);
 			exit(-1);
@@ -194,6 +199,12 @@ int main(int argc, char **argv)
 	for(int t = 0; t < threads; t++) {
     	pthread_join(thread_pool[t], NULL);
 	}
+
+    clock_gettime(CLOCK_REALTIME, &etime);
+
+    printf("Filtering took: %g secs\n", (etime.tv_sec  - stime.tv_sec) +
+	   1e-9*(etime.tv_nsec  - stime.tv_nsec)) ;
+
     /* write result */
     
     fprintf(outfile, "P6 %d %d %d\n", xsize, ysize, colmax);

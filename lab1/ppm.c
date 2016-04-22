@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "ppm.h"
 
 void ppm_error(char *str)
