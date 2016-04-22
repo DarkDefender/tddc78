@@ -1,7 +1,7 @@
 %!PS-Adobe-3.0 EPSF-3.0
 %%Title: blur1.eps
 %%Creator: matplotlib version 1.4.3, http://matplotlib.org/
-%%CreationDate: Wed Apr 20 12:23:43 2016
+%%CreationDate: Fri Apr 22 11:19:37 2016
 %%Orientation: portrait
 %%BoundingBox: 18 180 594 612
 %%EndComments
@@ -536,7 +536,7 @@ grestore
 1 setlinejoin
 0 setlinecap
 [] 0 setdash
-0.000 0.000 1.000 setrgbcolor
+1.000 0.000 0.000 setrgbcolor
 gsave
 446.4 345.6 72 43.2 clipbox
 96.8 310.045 m
@@ -580,7 +580,7 @@ translate
 3 -1.83697e-16 m
 -3 1.83697e-16 l
 gsave
-0.000 0.000 1.000 setrgbcolor
+1.000 0.000 0.000 setrgbcolor
 fill
 grestore
 stroke
@@ -604,7 +604,7 @@ translate
 3 -1.83697e-16 m
 -3 1.83697e-16 l
 gsave
-0.000 0.000 1.000 setrgbcolor
+1.000 0.000 0.000 setrgbcolor
 fill
 grestore
 stroke
@@ -618,6 +618,7 @@ grestore
 grestore
 1.000 setlinewidth
 2 setlinecap
+0.000 0.000 1.000 setrgbcolor
 gsave
 446.4 345.6 72 43.2 clipbox
 96.8 311.699 m
@@ -627,18 +628,44 @@ gsave
 468.8 87.531 l
 stroke
 grestore
-0 setlinejoin
+0.500 setlinewidth
+0 setlinecap
 0.000 setgray
 gsave
-72 43.2 m
-518.4 43.2 l
-stroke
-grestore
+446.4 345.6 72 43.2 clipbox
+/o {
 gsave
-518.4 43.2 m
-518.4 388.8 l
+newpath
+translate
+0.5 setlinewidth
+1 setlinejoin
+0 setlinecap
+0 -3 m
+0.795609 -3 1.55874 -2.6839 2.12132 -2.12132 c
+2.6839 -1.55874 3 -0.795609 3 0 c
+3 0.795609 2.6839 1.55874 2.12132 2.12132 c
+1.55874 2.6839 0.795609 3 0 3 c
+-0.795609 3 -1.55874 2.6839 -2.12132 2.12132 c
+-2.6839 1.55874 -3 0.795609 -3 0 c
+-3 -0.795609 -2.6839 -1.55874 -2.12132 -2.12132 c
+-1.55874 -2.6839 -0.795609 -3 0 -3 c
+cl
+gsave
+0.000 0.000 1.000 setrgbcolor
+fill
+grestore
 stroke
 grestore
+} bind def
+96.8 311.699 o
+121.6 180.999 o
+171.2 135.85 o
+270.4 95.3963 o
+468.8 87.531 o
+grestore
+1.000 setlinewidth
+0 setlinejoin
+2 setlinecap
 gsave
 72 388.8 m
 518.4 388.8 l
@@ -646,7 +673,17 @@ stroke
 grestore
 gsave
 72 43.2 m
+518.4 43.2 l
+stroke
+grestore
+gsave
+72 43.2 m
 72 388.8 l
+stroke
+grestore
+gsave
+518.4 43.2 m
+518.4 388.8 l
 stroke
 grestore
 0.500 setlinewidth

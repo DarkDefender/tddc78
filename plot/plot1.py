@@ -23,7 +23,7 @@ for fn in files:
 y = np.array(y)
 
 plt.figure()
-plt.errorbar(x, y, yerr=[low,high])
+plt.errorbar(x, y, yerr=[low,high], ecolor='r', marker='o')
 plt.xlabel("Number of cores")
 plt.ylabel("Time in seconds")
 plt.xlim(0,18)
