@@ -1,3 +1,15 @@
 [submodule "reports/lab1"]
 	path = reports/lab1
 	url = https://git.overleaf.com/4930915dspbcd
+[submodule "reports/lab3"]
+	path = reports/lab3
+	url = https://git.overleaf.com/4991712jscrfd
+[submodule "reports/lab4"]
+	path = reports/lab4
+	url = https://git.overleaf.com/4991749ysbcbb
+[submodule "reports/lab5"]
+	path = reports/lab5
+	url = https://git.overleaf.com/4991767ykggct
+[submodule "reports/lab2"]
+	path = reports/lab2
+	url = https://git.overleaf.com/4990959jxdcfq
