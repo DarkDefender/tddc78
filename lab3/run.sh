@@ -1,3 +1,3 @@
 #!/bin/bash
 
-OMP_NUM_THREADS=$1 ./penmp
+OMP_NUM_THREADS=$1 ./a.out

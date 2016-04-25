@@ -1,3 +1,4 @@
 #!/bin/bash
 
-gfortran -openmp ./laplsolv.f90
+#ifort -openmp ./laplsolv.f90
+gfortran -fopenmp ./laplsolv.f90
