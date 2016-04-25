@@ -14,7 +14,7 @@ program laplsolv
     double precision,dimension(0:n+1,0:n+1) :: T
     double precision,dimension(n)       :: tmp1,tmp2
     double precision,dimension(0:n+1)     :: tmp3
-    double precision                    :: error,x
+    double precision                    :: error,x,local_error
     real                                :: t1,t0
     integer                             :: i,j,k
     character(len=20)                   :: str
@@ -27,7 +27,14 @@ program laplsolv
     T(0:n+1 , n+1)   = 1.0D0
     T(n+1   , 0:n+1) = 2.0D0
 
+    !$omp parallel 
+    t_tot_no = omp_get_num_threads()
 
+    !$omp single
+    chunk_size = n / t_tot_no
+    !$omp end single
+
+    !$omp end parallel
     ! Solve the linear system of equations using the Jacobi method
     call cpu_time(t0)
 
@@ -35,43 +42,40 @@ program laplsolv
 
         tmp1=T(1:n,0)
         error=0.0D0
-
         do j=1,n
-            tmp2 = T(1:n,j)
-            tmp3 = T(0:n+1,j)
-            !$omp parallel private(t_id, t_tot_no, start_idx, end_idx)
+           !$omp parallel shared(error) private(local_error,t_id,start_idx,end_idx)
+           !$omp single
+           tmp2 = T(1:n,j)
+           !$omp end single
+           !$omp single
+           tmp3 = T(0:n+1,j)
+           !$omp end single
+           t_id = omp_get_thread_num()
 
-            !$omp single
-            t_tot_no = omp_get_num_threads()
-            t_id = omp_get_thread_num()
-            !$omp end single
 
-            chunk_size = n / t_tot_no
-            
-            start_idx = chunk_size * t_id + 1
-
-            if( t_id == t_tot_no - 1) then
-                end_idx = n
-            else
-                end_idx = chunk_size * (t_id + 1)
-            end if
-
-            T( start_idx : end_idx,j) = (tmp3(start_idx - 1 : end_idx - 1) + &
+           start_idx = chunk_size * t_id + 1
+           if( t_id == t_tot_no - 1) then
+              end_idx = n
+           else
+              end_idx = chunk_size * (t_id + 1)
+           end if
+           !$omp barrier
+           T( start_idx : end_idx,j) = (tmp3(start_idx - 1 : end_idx - 1) + &
                                         tmp3(start_idx + 1 : end_idx + 1) + &
                                         T(start_idx : end_idx,j+1) + &
                                         tmp1(start_idx : end_idx )) / 4.0D0
-            
-            !T(1:n,j)=(T(0:n-1,j)+T(2:n+1,j)+T(1:n,j+1)+tmp1)/4.0D0
-            !$omp end parallel
-            error=max(error,maxval(abs(tmp2-T(1:n,j))))
-            tmp1=tmp2
+
+           local_error = maxval(abs(tmp2(start_idx : end_idx)-T(start_idx : end_idx,j)))
+           !$omp critical
+           error= max(error,local_error)
+           !$omp end critical
+           !$omp end parallel
+           tmp1=tmp2
         end do
-
-        if (error<tol) then
-            exit
+        if(error<tol) then
+           exit
         end if
-
-    end do
+     end do
 
     call cpu_time(t1)
 
