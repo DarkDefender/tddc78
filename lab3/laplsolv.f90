@@ -12,6 +12,8 @@ contains
     logical :: debug = .false.
 
     n = size(tmp_index)
+
+
     do i = 1,n
        if (tmp_index(i) == -1) then
           tmp_index(i) = index
@@ -26,25 +28,22 @@ contains
     end if
   end subroutine save_temporary
 
-  subroutine get_index(index, tmp_index, n)
+  subroutine get_index(index, tmp_index)
     integer, intent(inout)::index
     integer, intent(in)::tmp_index(:)
-    integer, intent(in) :: n
 
     ! local variables
-    integer :: i
-    logical :: debug = .false.
+    integer :: i, n
+
+    n = size(tmp_index)
 
     do i=1,n
        if (index == tmp_index(i)) then
-          index = tmp_index(i)
-          debug = .true.
+          index = i
           exit
        end if
     end do
-    if (.not. debug) then
-       print *,"Failed to get tmp index"
-    end if
+
   end subroutine get_index
 
   ! Clean the temporary buffer array
@@ -54,17 +53,44 @@ contains
     integer, intent(inout)::tmp_index(:)
     integer, intent(in) :: n
 
-    if ( finished_list(index-1) .and. finished_list(index+1)) then
-       tmp_index(index) = -1
+    ! local variables
+    integer :: i, idx
+
+    ! Adjuest idx because fortran doesn't know that our array starts at 0 outside of this subroutine
+    idx = index + 1 
+
+    finished_list(idx) = .true.
+
+    if ( finished_list(idx-1) .and. finished_list(idx+1)) then
+        i = index
+        call get_index(i, tmp_index)
+       tmp_index(i) = -1
     end if
 
-    if ( index + 2 < n .and. finished_list(index + 1) .and. finished_list(index + 2)) then
-       tmp_index(index + 1) = -1
+    !Nested ifs because fortran
+    if ( index + 2 < n ) then
+        if ( finished_list(idx + 1) .and. finished_list(idx + 2)) then
+        i = index + 1
+        print *, i
+        call get_index(i, tmp_index)
+        print *, i
+        tmp_index(i) = -1
+        end if
     end if
 
-    if ( index - 2 >= 0 .and. finished_list(index - 1) .and. finished_list(index - 2)) then
-       tmp_index(index - 1) = -1
+    if ( index - 2 >= 0 ) then
+        if ( finished_list(idx - 1) .and. finished_list(idx - 2)) then
+        i = index - 1
+        call get_index(i, tmp_index)
+        tmp_index(i) = -1
+        end if
     end if
+
+    if ( index == 1 ) then
+        i = 0
+        call get_index(i, tmp_index)
+       tmp_index(i) = -1
+   end if
 
   end subroutine clean_temporary
 
@@ -112,17 +138,17 @@ program laplsolv
 
   temporary_index(1:storage_size) = -1
 
+  print *, "Storeage size is:",storage_size
+
   call cpu_time(t0)
 
   do k=1,maxiter
-
-     !tmp1=T(1:n,0)
      call save_temporary(T(1:n,0),0,temporary_index,temporary_storage)
      error=0.0D0
-     do j=1,4
+     do j=1,n
         call save_temporary(T(1:n,j),j,temporary_index,temporary_storage)
         i = j-1
-        call get_index(i,temporary_index,storage_size)
+        call get_index(i,temporary_index)
         !print *,i
         T(1:n,j)= &
              (T(0:n-1,j)+ &
@@ -130,24 +156,29 @@ program laplsolv
              T(1:n,j+1)+ &
              temporary_storage(1:n,i))/4.0D0
         i = j
-        call get_index(i,temporary_index,storage_size)
-        print *,i
+        call get_index(i,temporary_index)
         error=max( &
              error, maxval( &
              abs( temporary_storage(1:n,i)-T(1:n,j) &
              )))
         call clean_temporary(j,temporary_index,finished_index,n+2)
-     end do
+        end do
 
-     if(error<tol) then
+     if (error<tol) then
         exit
      end if
+     
+  temporary_index(1:storage_size) = -1
+  finished_index(1:n) = .false.
   end do
 
   call cpu_time(t1)
 
   write(unit=*,fmt=*) 'Time:',t1-t0,'Number of Iterations:',k
   write(unit=*,fmt=*) 'Temperature of element T(1,1)  =',T(1,1)
+
+  deallocate(temporary_index)
+  deallocate(temporary_storage)
 
   ! Uncomment the next part if you want to write the whole solution
   ! to a file. Useful for plotting.
