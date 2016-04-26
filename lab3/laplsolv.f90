@@ -9,23 +9,26 @@ contains
 
     ! local variables
     integer :: n,i
-    logical :: debug = .false.
 
     n = size(tmp_index)
 
+    i = index
+
+    call get_index(i, tmp_index)
+
+    if (i > -1) then
+        return
+    end if
 
     do i = 1,n
        if (tmp_index(i) == -1) then
           tmp_index(i) = index
           tmp_storage(1:size(in_array),i) = in_array
-          debug = .true.
-          exit
+          return
        end if
     end do
 
-    if (.not. debug) then
-       print *,"Failed to find tmp index"
-    end if
+    print *,"Failed to find tmp index"
   end subroutine save_temporary
 
   subroutine get_index(index, tmp_index)
@@ -40,9 +43,13 @@ contains
     do i=1,n
        if (index == tmp_index(i)) then
           index = i
-          exit
+          return
        end if
     end do
+
+    index = -1
+
+    !print *, "Didn't find any value in get_index"
 
   end subroutine get_index
 
@@ -112,7 +119,7 @@ program laplsolv
   integer,dimension(:),allocatable   :: temporary_index
   double precision,allocatable       :: temporary_storage(:,:)
   character(len=20)                   :: str
-  integer                             :: tot_threads, t_id, storage_size
+  integer                             :: tot_threads, t_id, storage_size, id_b, id_a
 
   ! Initialize all the finnished indicies to false (fortran boolean looks weird)
   finished_index(1:n) = .false.
@@ -132,7 +139,7 @@ program laplsolv
   !$omp end parallel
 
   ! Allocate and initialize the temporary data arrays
-  storage_size = tot_threads*2
+  storage_size = tot_threads*2 + 1
   allocate(temporary_index(storage_size))
   allocate(temporary_storage(n,storage_size))
 
@@ -143,18 +150,23 @@ program laplsolv
   call cpu_time(t0)
 
   do k=1,maxiter
-     call save_temporary(T(1:n,0),0,temporary_index,temporary_storage)
      error=0.0D0
      do j=1,n
+        call save_temporary(T(1:n,j-1),j-1,temporary_index,temporary_storage)
         call save_temporary(T(1:n,j),j,temporary_index,temporary_storage)
-        i = j-1
-        call get_index(i,temporary_index)
+        call save_temporary(T(1:n,j+1),j+1,temporary_index,temporary_storage)
+        !Get the id for the data above us
+        id_a = j - 1
+        call get_index(id_a,temporary_index)
+        !Get the id for the data below us
+        id_b = j + 1
+        call get_index(id_b,temporary_index)
         !print *,i
         T(1:n,j)= &
              (T(0:n-1,j)+ &
              T(2:n+1,j)+ &
-             T(1:n,j+1)+ &
-             temporary_storage(1:n,i))/4.0D0
+             temporary_storage(1:n,id_b)+ &
+             temporary_storage(1:n,id_a))/4.0D0
         i = j
         call get_index(i,temporary_index)
         error=max( &
@@ -162,14 +174,15 @@ program laplsolv
              abs( temporary_storage(1:n,i)-T(1:n,j) &
              )))
         call clean_temporary(j,temporary_index,finished_index,n+2)
-        end do
+     end do
+
 
      if (error<tol) then
         exit
      end if
      
-  temporary_index(1:storage_size) = -1
-  finished_index(1:n) = .false.
+     temporary_index(1:storage_size) = -1
+     finished_index(1:n) = .false.
   end do
 
   call cpu_time(t1)
