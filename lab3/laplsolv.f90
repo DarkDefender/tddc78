@@ -78,9 +78,7 @@ contains
     if ( index + 2 < n ) then
         if ( finished_list(idx + 1) .and. finished_list(idx + 2)) then
         i = index + 1
-        print *, i
         call get_index(i, tmp_index)
-        print *, i
         tmp_index(i) = -1
         end if
     end if
@@ -109,7 +107,7 @@ program laplsolv
   use helper_func
   implicit none
 
-  integer, parameter                  :: n=100, maxiter=1000
+  integer, parameter                  :: n=1000, maxiter=1000
   double precision,parameter          :: tol=1.0E-3
   double precision,dimension(0:n+1,0:n+1) :: T
   double precision                    :: error,x
@@ -118,6 +116,7 @@ program laplsolv
   logical,dimension(0:n+1)            :: finished_index
   integer,dimension(:),allocatable   :: temporary_index
   double precision,allocatable       :: temporary_storage(:,:)
+  double precision,dimension(:),allocatable   :: local_error
   character(len=20)                   :: str
   integer                             :: tot_threads, t_id, storage_size, id_b, id_a
 
@@ -139,29 +138,36 @@ program laplsolv
   !$omp end parallel
 
   ! Allocate and initialize the temporary data arrays
-  storage_size = tot_threads*2 + 1
+  storage_size = tot_threads*3 + 1
   allocate(temporary_index(storage_size))
+  allocate(local_error(0:tot_threads-1))
   allocate(temporary_storage(n,storage_size))
 
   temporary_index(1:storage_size) = -1
 
   print *, "Storeage size is:",storage_size
 
-  call cpu_time(t0)
-
+  !call cpu_time(t0)
+  t0 = omp_get_wtime()
   do k=1,maxiter
-     error=0.0D0
+     local_error(0:tot_threads - 1) = 0.0D0
+     !$omp parallel private(t_id)
+     t_id = omp_get_thread_num()
+     !$omp do private(id_a,id_b,i) schedule(dynamic)
      do j=1,n
+        !$omp critical
+        !print *, j
         call save_temporary(T(1:n,j-1),j-1,temporary_index,temporary_storage)
         call save_temporary(T(1:n,j),j,temporary_index,temporary_storage)
         call save_temporary(T(1:n,j+1),j+1,temporary_index,temporary_storage)
-        !Get the id for the data above us
+        !$omp end critical
         id_a = j - 1
+        id_b = j + 1
+
+        !Get the id for the data above us
         call get_index(id_a,temporary_index)
         !Get the id for the data below us
-        id_b = j + 1
         call get_index(id_b,temporary_index)
-        !print *,i
         T(1:n,j)= &
              (T(0:n-1,j)+ &
              T(2:n+1,j)+ &
@@ -169,28 +175,36 @@ program laplsolv
              temporary_storage(1:n,id_a))/4.0D0
         i = j
         call get_index(i,temporary_index)
-        error=max( &
-             error, maxval( &
+        local_error( t_id )=max( &
+             local_error(t_id), maxval( &
              abs( temporary_storage(1:n,i)-T(1:n,j) &
              )))
+        !$omp critical
         call clean_temporary(j,temporary_index,finished_index,n+2)
+        !$omp end critical
      end do
+     !$omp end do
+     !$omp end parallel
 
+     error = maxval(local_error)
 
      if (error<tol) then
-        exit
-     end if
-     
+       exit
+    end if
+
      temporary_index(1:storage_size) = -1
      finished_index(1:n) = .false.
   end do
 
-  call cpu_time(t1)
+  !call cpu_time(t1)
+
+  t1 = omp_get_wtime()
 
   write(unit=*,fmt=*) 'Time:',t1-t0,'Number of Iterations:',k
   write(unit=*,fmt=*) 'Temperature of element T(1,1)  =',T(1,1)
 
   deallocate(temporary_index)
+  deallocate(local_error)
   deallocate(temporary_storage)
 
   ! Uncomment the next part if you want to write the whole solution
