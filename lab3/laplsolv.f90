@@ -109,13 +109,13 @@ program laplsolv
 
   integer, parameter                  :: n=1000, maxiter=1000
   double precision,parameter          :: tol=1.0E-3
-  double precision,dimension(0:n+1,0:n+1) :: T
+  !double precision,dimension(0:n+1,0:n+1) :: T
   double precision                    :: error,x
   real                                :: t1,t0
   integer                             :: i,j,k
   logical,dimension(0:n+1)            :: finished_index
   integer,dimension(:),allocatable   :: temporary_index
-  double precision,allocatable       :: temporary_storage(:,:)
+  double precision,allocatable       :: temporary_storage(:,:), T(:,:)
   double precision,dimension(:),allocatable   :: local_error
   character(len=20)                   :: str
   integer                             :: tot_threads, t_id, storage_size, id_b, id_a
@@ -125,6 +125,8 @@ program laplsolv
   finished_index(0) = .true.
   finished_index(n+1) = .true.
 
+  ! Allocate T
+  allocate(T(0:n+1,0:n+1))
   ! Set boundary conditions and initial values for the unknowns
   T=0.0D0
   T(0:n+1 , 0)     = 1.0D0
@@ -206,6 +208,7 @@ program laplsolv
   deallocate(temporary_index)
   deallocate(local_error)
   deallocate(temporary_storage)
+  deallocate(T)
 
   ! Uncomment the next part if you want to write the whole solution
   ! to a file. Useful for plotting.
