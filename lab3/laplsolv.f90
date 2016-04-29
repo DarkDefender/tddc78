@@ -111,7 +111,7 @@ program laplsolv
   double precision,parameter          :: tol=1.0E-3
   !double precision,dimension(0:n+1,0:n+1) :: T
   double precision                    :: error,x
-  real                                :: t1,t0
+  double precision                    :: t1,t0
   integer                             :: i,j,k
   logical,dimension(0:n+1)            :: finished_index
   integer,dimension(:),allocatable   :: temporary_index
