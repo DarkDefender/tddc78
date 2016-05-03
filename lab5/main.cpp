@@ -10,6 +10,23 @@
 
 const cord_t wall = {0.0f, BOX_HORIZ_SIZE, 0.0f, BOX_VERT_SIZE};
 
+enum e_direction {
+  None = -1,
+  N = 0,
+  NE,
+  E,
+  SE,
+  S,
+  SW,
+  W,
+  NW
+};
+
+e_direction outside_boundry(pcord_t* cord, cord_t boundry, cord_t wall) {
+
+  return e_direction::None;
+}
+
 void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 	std::list<particle_t> part_list;
 
@@ -53,12 +70,30 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 	//Total number of iterations to do
 	int iterations = 10000;
 	float col_ret;
-    float time_step = STEP_SIZE;
+  float time_step = STEP_SIZE;
+
+  // Allocate a list for managing particles to communicate
+  std::vector<std:list<particle_t>*> send_list(8);
+  for (int i = 0; i < 8; ++i) {
+    send_list[i] = new std:list<particle_t>();
+  }
 
 	float momentum = 0;
+  // variable for handling which direction we should communicate
+  e_direction dir;
 
 	for( int i = 0; i < iterations; i++ ){
+    // if a particle is outside the boundry, give it away
 		for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
+      dir = outside_boundry(it->pcord, boundry, wall); 
+      if (dir != None) {
+        send_list[dir]->push_back(*it);
+        part_list.erase(it);
+      }
+    }
+    // if a particle is outside the boundry, give it away
+    // Give mpi command
+    for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
 			for( std::list<particle_t>::iterator it2 = std::next(it); it2 != part_list.end(); ++it2 ){
 
 				//Check for collisions
@@ -81,7 +116,11 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 		}
 	}
 
-	// Simulation is done, gather the total momentum sum
+  // free our allocated list
+	for (int i = 0; i < 8; ++i) {
+    delete send_list[i];
+  }
+  // Simulation is done, gather the total momentum sum
 	float momentum_sum = 0;
 
 	MPI_Allreduce(&momentum, &momentum_sum, 1, MPI_FLOAT, MPI_SUM, comm);
