@@ -3,9 +3,12 @@
 #include <stdlib.h>
 #include <cmath>
 #include <list>
+#include <iterator>
 #include <random>
 #include "physics.h"
 #include "definitions.h"
+
+const cord_t wall = {0.0f, BOX_HORIZ_SIZE, 0.0f, BOX_VERT_SIZE};
 
 void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 	std::list<particle_t> part_list;
@@ -48,20 +51,46 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 	}
 
 	//Total number of iterations to do
-	int iterations = 100;
+	int iterations = 10000;
+	float col_ret;
+    float time_step = STEP_SIZE;
+
+	float momentum = 0;
 
 	for( int i = 0; i < iterations; i++ ){
 		for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
+			for( std::list<particle_t>::iterator it2 = std::next(it); it2 != part_list.end(); ++it2 ){
 
-			//Check for collisions
+				//Check for collisions
+				col_ret = collide(&(it->pcord),&(it2->pcord));
 
-			//Move non-collided particles
+				if( col_ret != -1.0f ) {
+					interact( &(it->pcord),&(it2->pcord), col_ret );
+					// It is statistically very unlikely that this praticle will collide more than once per time step.
+					// So we skip checking for more collisions.
+					break;
+				}
+			}
 
+			if( col_ret == -1.0f ){
+				//Move non-collided particles
+				feuler( &(it->pcord), time_step );
+			}
 			//Wall collision check
-
+			momentum += wall_collide( &(it->pcord), wall );
 		}
 	}
 
+	// Simulation is done, gather the total momentum sum
+	float momentum_sum = 0;
+
+	MPI_Allreduce(&momentum, &momentum_sum, 1, MPI_FLOAT, MPI_SUM, comm);
+
+	if( myid == 0 ){
+		float presure = momentum_sum / (static_cast<float>(iterations));
+		presure = presure / WALL_LENGTH;
+        printf( "Presure: %f\n", presure );
+	}
 }
 
 //Setup the MPI CPU chart
