@@ -55,7 +55,7 @@ e_direction outside_boundry(pcord_t* cord, cord_t boundry) {
   else if (cord->y > boundry.y1){
     return e_direction::S;
   }
-  return e_direction:None;
+  return e_direction::None;
 }
 
 void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
@@ -83,7 +83,7 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 
 	float r, phi;
 
-	for( int i = 0; i < INIT_NO_PARTICLES; i++ ){
+	for( int i = 0; i < INIT_NO_PARTICLES/2; i++ ){
 		particle_t new_part;
 
 		r = dist_velo(rd);
@@ -99,119 +99,156 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 	}
 
 	//Total number of iterations to do
-	int iterations = 10000;
+	int iterations = 1000;
 	float col_ret;
-  float time_step = STEP_SIZE;
+	float time_step = STEP_SIZE;
 
-  // Allocate a list for managing particles to communicate
-  std::vector<std:vector<particle_t>> send_list(8);
+	// Allocate a list for managing particles to communicate
+	std::vector<std::vector<particle_t>> send_list(8);
 
-  // Allocate an array for which neighbors we got
-  std::vector<int> cpu_id_list(8);
-  int src,dest;
-  for (int i = 0; i < 8; ++i) {
-    switch (i) {
-    case 0: // North
-      src = 0;
-      dest = -1;
-      break;
-    case 1: // NorthEast
-      src = 1;
-      dest = -1;
-      break;
-    case 2: // East
-      src = 1;
-      dest = 0;
-      break;
-    case 3: // SouthEast
-      src = 1;
-      dest = 1;
-      break;
-    case 4: // South
-      src = 0;
-      dest = 1;
-      break;
-    case 5: // SouthWest
-      src = -1;
-      dest = 1;
-      break;
-    case 6: // West
-      src = -1;
-      dest = 0;
-      break;
-    case 7: // NorthWest
-      src = -1;
-      dest = -1;
-      break;
-    default:
-      printf("Error init cpu_id_list. This should not happen!\n");
-    }
-    MPI_Cart_shift( comm, src, dest, &src, &dest);
-    cpu_id_list[i] = dest;
-  }
-
-  // Boundries for our scope
-  cord_t boundry = {start_x,start_x+x_chunk,start_y,start_y+y_chunk};
-
-	float momentum = 0;
-  // variable for handling which direction we should communicate
-  e_direction dir;
-
-	for( int i = 0; i < iterations; i++ ){
-    // if a particle is outside the boundry, give it away
-		for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
-      dir = outside_boundry(it->pcord, boundry);
-      if (dir != None) {
-        send_list[dir].push_back(*it);
-        part_list.erase(it);
-      }
-    }
-    // distribute the send_list
-    for (int t = 0; t < send_list.size(); ++t) {
-      if (cpu_id_list[t] > -1) {
-        MPI_Isend(send_list[t].size(), 1,
-                  MPI_INT, cpu_id_list[t], 0, comm,NULL);
-        if (!send_list[t].empty()) {
-          MPI_Isend(&send_list[t][0], particle_size*send_list[t].size(),
-                    MPI_CHAR, cpu_id_list[t], 1, comm, NULL);
-        }
-      }
-    }
-    
-
-    for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
-			for( std::list<particle_t>::iterator it2 = std::next(it); it2 != part_list.end(); ++it2 ){
-
-				//Check for collisions
-				col_ret = collide(&(it->pcord),&(it2->pcord));
-
-				if( col_ret != -1.0f ) {
-					interact( &(it->pcord),&(it2->pcord), col_ret );
-					// It is statistically very unlikely that this praticle will collide more than once per time step.
-					// So we skip checking for more collisions.
-					break;
-				}
-			}
-
-			if( col_ret == -1.0f ){
-				//Move non-collided particles
-				feuler( &(it->pcord), time_step );
-			}
-			//Wall collision check
-			momentum += wall_collide( &(it->pcord), wall );
+	// Allocate an array for which neighbors we got
+	std::vector<int> cpu_id_list(8);
+	int dest_off_x,dest_off_y;
+	for (int i = 0; i < 8; ++i) {
+		switch (i) {
+			case 0: // North
+				dest_off_x = 0;
+				dest_off_y = -1;
+				break;
+			case 1: // NorthEast
+				dest_off_x = 1;
+				dest_off_y = -1;
+				break;
+			case 2: // East
+				dest_off_x = 1;
+				dest_off_y = 0;
+				break;
+			case 3: // SouthEast
+				dest_off_x = 1;
+				dest_off_y = 1;
+				break;
+			case 4: // South
+				dest_off_x = 0;
+				dest_off_y = 1;
+				break;
+			case 5: // SouthWest
+				dest_off_x = -1;
+				dest_off_y = 1;
+				break;
+			case 6: // West
+				dest_off_x = -1;
+				dest_off_y = 0;
+				break;
+			case 7: // NorthWest
+				dest_off_x = -1;
+				dest_off_y = -1;
+				break;
+			default:
+				printf("Error init cpu_id_list. This should not happen!\n");
+		}
+		int temp_coo[] = { coo[0] + dest_off_x, coo[1] + dest_off_y };
+		if( temp_coo[0] >= 0 && temp_coo[0] < x_size &&
+			temp_coo[1] >= 0 && temp_coo[1] < y_size){
+			int neighbor_id;
+			MPI_Cart_rank( comm, temp_coo, &neighbor_id );
+			cpu_id_list[i] = neighbor_id;
+			printf("My id: %d, i: %d, temp_coo: %d,%d\n", myid, i, temp_coo[0], temp_coo[1]);
+		} else {
+			cpu_id_list[i] = -1;
 		}
 	}
 
+	// Boundries for our scope
+	cord_t boundry = {start_x,start_x+x_chunk,start_y,start_y+y_chunk};
+
+	float momentum = 0;
+	// variable for handling which direction we should communicate
+	e_direction dir;
+	// For keeping track of vector sizes that we will send later
+	int v_size[8];
+
+	for( int i = 0; i < iterations; i++ ){
+	  // if a particle is outside the boundry, give it away
+	  for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
+		  dir = outside_boundry(&it->pcord, boundry);
+		  if (dir != None) {
+			  send_list[dir].push_back(*it);
+			  part_list.erase(it);
+		  }
+	  }
+
+	  std::vector<MPI_Request> reqs(8);
+	  reqs.resize(0);
+	  // distribute the send_list
+	  for (int t = 0; t < send_list.size(); ++t) {
+		  if (cpu_id_list[t] > -1) {
+			  reqs.resize( reqs.size() + 1 );
+			  v_size[t] = send_list[t].size();
+			  MPI_Isend(&v_size[t], 1,
+					  MPI_INT, cpu_id_list[t], 0, comm, &reqs[ reqs.size() -1 ]);
+			  if (!send_list[t].empty()) {
+				  reqs.resize( reqs.size() + 1 );
+				  MPI_Isend(&send_list[t][0], particle_size*send_list[t].size(),
+						  MPI_CHAR, cpu_id_list[t], 1, comm, &reqs[ reqs.size() -1 ]);
+			  }
+		  }
+	  }
+
+	  // Get new particles (if any) from the neighbor threads
+	  for (int t = 0; t < cpu_id_list.size(); ++t){
+		  if (cpu_id_list[t] > -1) {
+			  int recv_size = 0;
+			  std::vector<particle_t> temp_vec;
+			  MPI_Recv(&recv_size, 1, MPI_INT, cpu_id_list[t], 0, comm, MPI_STATUS_IGNORE);
+
+			  if( recv_size > 0 ){
+				  temp_vec.resize( recv_size / particle_size );
+
+				  MPI_Recv(&temp_vec[0], recv_size, MPI_CHAR, cpu_id_list[t], 1, comm, MPI_STATUS_IGNORE);
+				  part_list.insert( std::end(part_list), std::begin(temp_vec), std::end(temp_vec) );
+			  }
+		  }
+	  }
+
+	  if( !reqs.empty() ){
+		  MPI_Waitall(reqs.size(), &reqs[0], MPI_STATUSES_IGNORE);
+		  send_list.clear();
+	  }
+
+	  // Simulate our particles
+	  for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
+		  for( std::list<particle_t>::iterator it2 = std::next(it); it2 != part_list.end(); ++it2 ){
+
+			  //Check for collisions
+			  col_ret = collide(&(it->pcord),&(it2->pcord));
+
+			  if( col_ret != -1.0f ) {
+				  interact( &(it->pcord),&(it2->pcord), col_ret );
+				  // It is statistically very unlikely that this praticle will collide more than once per time step.
+				  // So we skip checking for more collisions.
+				  break;
+			  }
+		  }
+
+		  if( col_ret == -1.0f ){
+			  //Move non-collided particles
+			  feuler( &(it->pcord), time_step );
+		  }
+		  //Wall collision check
+		  momentum += wall_collide( &(it->pcord), wall );
+	  }
+  }
+
   // Simulation is done, gather the total momentum sum
-	float momentum_sum = 0;
+  float momentum_sum = 0;
 
-	MPI_Allreduce(&momentum, &momentum_sum, 1, MPI_FLOAT, MPI_SUM, comm);
+  MPI_Allreduce(&momentum, &momentum_sum, 1, MPI_FLOAT, MPI_SUM, comm);
 
-	if( myid == 0 ){
-		float presure = momentum_sum / (static_cast<float>(iterations));
-		presure = presure / WALL_LENGTH;
-    printf( "Presure: %f\n", presure );
-	}
+  if( myid == 0 ){
+	  float presure = momentum_sum / (static_cast<float>(iterations));
+	  //presure = presure / WALL_LENGTH;
+	  printf( "Presure: %f\n", presure );
+  }
 }
 
 //Setup the MPI CPU chart
@@ -234,17 +271,20 @@ int init_cpu_cart(MPI_Comm *new_comm,int myid, int p_tot, int x_size, int y_size
 	// create virtual 2D grid topology:
 	MPI_Cart_create( comm, 2, dims, period,
                    reorder, new_comm );
-	/*
+    /*
 	// get my coordinates in 2D grid:
-	MPI_Cart_coords( new_comm, myid, 2, coo );
+	MPI_Cart_coords( *new_comm, myid, 2, coo );
 
+	int temp_coo[2];
+	temp_coo[0] = 1;
+	temp_coo[1] = 0;
+	MPI_Cart_rank( *new_comm, temp_coo, &dest );
 	// get rank of my grid neighbor in dim. 0
-	MPI_Cart_shift( new_comm, 0, +1, // to south,
+	MPI_Cart_shift( *new_comm, 0, +1, // to south,
 	&src, &dest); // from south
-
 	printf("%d: My new id is: %d, %d\n", myid, coo[0], coo[1]);
 	printf("%d Src: %d, dest: %d\n", myid, src, dest);
-	*/
+    */
 	return 1;
 }
 
