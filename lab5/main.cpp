@@ -9,8 +9,9 @@
 #include "physics.h"
 #include "definitions.h"
 
-const cord_t wall = {0.0f, BOX_HORIZ_SIZE, 0.0f, BOX_VERT_SIZE};
+static cord_t wall;
 const std::size_t particle_size = sizeof(particle_t);
+static int nr_of_particles, problem_size;
 
 enum e_direction {
   None = -1,
@@ -64,8 +65,8 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 	float x_chunk, y_chunk;
 	int coo[2];
 
-	x_chunk = BOX_HORIZ_SIZE / static_cast<float>(x_size);
-	y_chunk = BOX_VERT_SIZE / static_cast<float>(y_size);
+	x_chunk = problem_size / static_cast<float>(x_size);
+	y_chunk = problem_size / static_cast<float>(y_size);
 
 	MPI_Cart_coords( comm, myid, 2, coo );
 
@@ -83,7 +84,7 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 
 	float r, phi;
 
-	for( int i = 0; i < INIT_NO_PARTICLES/2; i++ ){
+	for( int i = 0; i < nr_of_particles/(x_size*y_size); i++ ){
 		particle_t new_part;
 
 		r = dist_velo(rd);
@@ -183,47 +184,47 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 		  if (cpu_id_list[t] > -1) {
 			  reqs.resize( reqs.size() + 1 );
 			  v_size[t] = send_list[t].size();
-        printf("my id: %d, before send1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
+        //printf("my id: %d, before send1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  MPI_Isend(&v_size[t], 1,
 					  MPI_INT, cpu_id_list[t], 0, comm, &reqs[ reqs.size() -1 ]);
-        printf("my id: %d, after send1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
+        //printf("my id: %d, after send1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  if (send_list[t].size() > 0 && !send_list[t].empty()) {
 				  reqs.resize( reqs.size() + 1 );
-          printf("my id: %d, before send2, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
+          //printf("my id: %d, before send2, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 				  MPI_Isend(&send_list[t][0], particle_size*send_list[t].size(),
 						  MPI_CHAR, cpu_id_list[t], 1, comm, &reqs[ reqs.size() -1 ]);
-          printf("my id: %d, after send2, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
+          //printf("my id: %d, after send2, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  }
 		  }
 	  }
-    printf("my id: %d, send_list_size(): %d\n",myid, send_list.size());
+    //printf("my id: %d, send_list_size(): %d\n",myid, send_list.size());
 	  // Get new particles (if any) from the neighbor threads
 	  for (int t = 0; t < cpu_id_list.size(); ++t){
 		  if (cpu_id_list[t] > -1) {
 			  int recv_size = 0;
 			  std::vector<particle_t> temp_vec;
-        printf("my id: %d, before recv1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
+        //printf("my id: %d, before recv1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  MPI_Recv(&recv_size, 1, MPI_INT, cpu_id_list[t], 0, comm, MPI_STATUS_IGNORE);
-        printf("my id: %d, after recv1\n",myid);
+        //printf("my id: %d, after recv1\n",myid);
 			  if( recv_size > 0 ){
 				  temp_vec.resize( recv_size );
-          printf("my id: %d, before recv2, temp_vec.size(): %d, recv_size: %d, particle size: %d\n",
-                 myid, temp_vec.size(), recv_size, particle_size);
+          //printf("my id: %d, before recv2, temp_vec.size(): %d, recv_size: %d, particle size: %d\n",
+          //       myid, temp_vec.size(), recv_size, particle_size);
 				  MPI_Recv(&temp_vec[0], recv_size*particle_size, MPI_CHAR, cpu_id_list[t], 1, comm, MPI_STATUS_IGNORE);
-          printf("my id: %d, after recv2, temp_vec.size(): %d\n", myid,temp_vec.size());
+          //printf("my id: %d, after recv2, temp_vec.size(): %d\n", myid,temp_vec.size());
 				  part_list.insert( std::end(part_list), std::begin(temp_vec), std::end(temp_vec) );
 			  }
 		  }
 	  }
 
 	  if( !reqs.empty() ){
-      printf("my id: %d, before wait, reqs.size(): %d\n",myid,reqs.size());
+      //printf("my id: %d, before wait, reqs.size(): %d\n",myid,reqs.size());
 		  MPI_Waitall(reqs.size(), &reqs[0], MPI_STATUSES_IGNORE);
-      printf("my id: %d, after wait\n",myid);
+      //printf("my id: %d, after wait\n",myid);
 		  send_list.clear();
       send_list.resize(8);
 	  }
-    printf("id: %d, starting simulation\n", myid);
+    //printf("my id: %d, starting simulation\n", myid);
 	  // Simulate our particles
 	  for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
 		  for( std::list<particle_t>::iterator it2 = std::next(it); it2 != part_list.end(); ++it2 ){
@@ -280,28 +281,14 @@ int init_cpu_cart(MPI_Comm *new_comm,int myid, int p_tot, int x_size, int y_size
 	// create virtual 2D grid topology:
 	MPI_Cart_create( comm, 2, dims, period,
                    reorder, new_comm );
-    /*
-	// get my coordinates in 2D grid:
-	MPI_Cart_coords( *new_comm, myid, 2, coo );
-
-	int temp_coo[2];
-	temp_coo[0] = 1;
-	temp_coo[1] = 0;
-	MPI_Cart_rank( *new_comm, temp_coo, &dest );
-	// get rank of my grid neighbor in dim. 0
-	MPI_Cart_shift( *new_comm, 0, +1, // to south,
-	&src, &dest); // from south
-	printf("%d: My new id is: %d, %d\n", myid, coo[0], coo[1]);
-	printf("%d Src: %d, dest: %d\n", myid, src, dest);
-    */
 	return 1;
 }
 
 int main(int argc, char const* argv[])
 {
 
-	if( argc != 3 ){
-		printf("Problem grid size\n");
+	if( argc != 5 ){
+		printf("Not enough arguments, need 4:\n\t<x> <y> <particles> <problem size> \n");
 		return -1;
 	}
 
@@ -309,7 +296,10 @@ int main(int argc, char const* argv[])
 
 	x_size = atoi(argv[1]);
 	y_size = atoi(argv[2]);
+  nr_of_particles = atoi(argv[3]);
+  problem_size = atoi(argv[4]);
 
+  wall = {0.0f, static_cast<float>(problem_size), 0.0f, static_cast<float>(problem_size)};
 	int myid, p_tot;
 	MPI_Init( NULL, NULL );
 	MPI_Comm_rank( MPI_COMM_WORLD, &myid );
