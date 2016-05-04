@@ -1,6 +1,6 @@
 CXX = mpic++
 
-CXXFLAGS = -std=c++11 -g -O3 -march=native 
+CXXFLAGS = -std=c++11 -g #-O3 -march=native 
 
 LFLAGS = -g
 

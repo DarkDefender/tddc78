@@ -152,7 +152,6 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 			int neighbor_id;
 			MPI_Cart_rank( comm, temp_coo, &neighbor_id );
 			cpu_id_list[i] = neighbor_id;
-			printf("My id: %d, i: %d, temp_coo: %d,%d\n", myid, i, temp_coo[0], temp_coo[1]);
 		} else {
 			cpu_id_list[i] = -1;
 		}
@@ -184,23 +183,28 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 		  if (cpu_id_list[t] > -1) {
 			  reqs.resize( reqs.size() + 1 );
 			  v_size[t] = send_list[t].size();
+        printf("my id: %d, before send1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  MPI_Isend(&v_size[t], 1,
 					  MPI_INT, cpu_id_list[t], 0, comm, &reqs[ reqs.size() -1 ]);
-			  if (!send_list[t].empty()) {
+        printf("my id: %d, after send1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
+			  if (send_list[t].size() > 0 && !send_list[t].empty()) {
 				  reqs.resize( reqs.size() + 1 );
+          printf("my id: %d, before send2, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 				  MPI_Isend(&send_list[t][0], particle_size*send_list[t].size(),
 						  MPI_CHAR, cpu_id_list[t], 1, comm, &reqs[ reqs.size() -1 ]);
+          printf("my id: %d, after send2, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  }
 		  }
 	  }
-
+    printf("my id: %d, send_list_size(): %d\n",myid, send_list.size());
 	  // Get new particles (if any) from the neighbor threads
 	  for (int t = 0; t < cpu_id_list.size(); ++t){
 		  if (cpu_id_list[t] > -1) {
 			  int recv_size = 0;
 			  std::vector<particle_t> temp_vec;
+        printf("my id: %d, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  MPI_Recv(&recv_size, 1, MPI_INT, cpu_id_list[t], 0, comm, MPI_STATUS_IGNORE);
-
+        printf("my id: %d, after recv\n",myid);
 			  if( recv_size > 0 ){
 				  temp_vec.resize( recv_size / particle_size );
 
@@ -213,8 +217,9 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 	  if( !reqs.empty() ){
 		  MPI_Waitall(reqs.size(), &reqs[0], MPI_STATUSES_IGNORE);
 		  send_list.clear();
+      send_list.resize(8);
 	  }
-
+    printf("id: %d, starting simulation\n", myid);
 	  // Simulate our particles
 	  for( std::list<particle_t>::iterator it = part_list.begin(); it != part_list.end(); ++it ){
 		  for( std::list<particle_t>::iterator it2 = std::next(it); it2 != part_list.end(); ++it2 ){
