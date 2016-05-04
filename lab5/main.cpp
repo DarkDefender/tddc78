@@ -172,12 +172,12 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 		  dir = outside_boundry(&it->pcord, boundry);
 		  if (dir != None) {
 			  send_list[dir].push_back(*it);
-			  part_list.erase(it);
+			  it = part_list.erase(it);
 		  }
 	  }
 
-	  std::vector<MPI_Request> reqs(8);
-	  reqs.resize(0);
+	  std::vector<MPI_Request> reqs;
+	  //reqs.resize(0);
 	  // distribute the send_list
 	  for (int t = 0; t < send_list.size(); ++t) {
 		  if (cpu_id_list[t] > -1) {
@@ -202,20 +202,24 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 		  if (cpu_id_list[t] > -1) {
 			  int recv_size = 0;
 			  std::vector<particle_t> temp_vec;
-        printf("my id: %d, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
+        printf("my id: %d, before recv1, t: %d, cpu_id_list: %d\n",myid, t, cpu_id_list[t]);
 			  MPI_Recv(&recv_size, 1, MPI_INT, cpu_id_list[t], 0, comm, MPI_STATUS_IGNORE);
-        printf("my id: %d, after recv\n",myid);
+        printf("my id: %d, after recv1\n",myid);
 			  if( recv_size > 0 ){
-				  temp_vec.resize( recv_size / particle_size );
-
-				  MPI_Recv(&temp_vec[0], recv_size, MPI_CHAR, cpu_id_list[t], 1, comm, MPI_STATUS_IGNORE);
+				  temp_vec.resize( recv_size );
+          printf("my id: %d, before recv2, temp_vec.size(): %d, recv_size: %d, particle size: %d\n",
+                 myid, temp_vec.size(), recv_size, particle_size);
+				  MPI_Recv(&temp_vec[0], recv_size*particle_size, MPI_CHAR, cpu_id_list[t], 1, comm, MPI_STATUS_IGNORE);
+          printf("my id: %d, after recv2, temp_vec.size(): %d\n", myid,temp_vec.size());
 				  part_list.insert( std::end(part_list), std::begin(temp_vec), std::end(temp_vec) );
 			  }
 		  }
 	  }
 
 	  if( !reqs.empty() ){
+      printf("my id: %d, before wait, reqs.size(): %d\n",myid,reqs.size());
 		  MPI_Waitall(reqs.size(), &reqs[0], MPI_STATUSES_IGNORE);
+      printf("my id: %d, after wait\n",myid);
 		  send_list.clear();
       send_list.resize(8);
 	  }
