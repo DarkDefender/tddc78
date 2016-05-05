@@ -256,7 +256,7 @@ void part_sim(MPI_Comm comm, int p_tot, int myid, int x_size, int y_size ){
 
 	if( myid == 0 ){
 		float presure = momentum_sum / (static_cast<float>(iterations));
-		//presure = presure / WALL_LENGTH;
+		presure = presure / (4.0f*static_cast<float>(problem_size));
 		printf( "Presure: %f\n", presure );
 	}
 }
